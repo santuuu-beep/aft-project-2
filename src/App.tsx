@@ -208,6 +208,7 @@ function App() {
           : 'Something went wrong. Please try again.';
       setError(errorMessage);
 
+      // Remove user message on error
       setMessages((prev) => prev.slice(0, -1));
     } finally {
       setIsLoading(false);
@@ -222,4 +223,111 @@ function App() {
       const welcomeMessage: Message = {
         id: 'welcome-' + Date.now(),
         content: teluguMode ? 'చాట్ క్లియర్ అయ్యింది. మళ్లీ ప్రారంభిద్దాం!' : "Chat cleared. Let's start fresh!",
-        is
+        isUser: false,
+        timestamp: new Date(),
+      };
+      setMessages([welcomeMessage]);
+
+      if (voiceEnabled && isTTSAvailable()) {
+        speakText(welcomeMessage.content, teluguMode).catch(console.log);
+      }
+    }, 100);
+  };
+
+  // Render the main app UI depending on the currentPage
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex flex-col">
+      <header className="flex items-center justify-between p-4 bg-white shadow">
+        <h1 className="text-xl font-bold text-indigo-700">Jeevamithra</h1>
+        <div className="flex items-center space-x-4">
+          <button
+            onClick={() => setShowProfile(!showProfile)}
+            className="text-indigo-600 hover:text-indigo-900"
+            aria-label="Toggle Profile"
+          >
+            Profile
+          </button>
+          <button
+            onClick={() => {
+              localStorage.removeItem('userProfile');
+              setUserProfile(null);
+            }}
+            className="flex items-center space-x-1 text-red-600 hover:text-red-900"
+            aria-label="Logout"
+          >
+            <LogOut className="w-5 h-5" />
+            <span>{teluguMode ? 'లాగ్ అవుట్' : 'Logout'}</span>
+          </button>
+        </div>
+      </header>
+
+      {showProfile && userProfile && (
+        <ProfileSection
+          userProfile={userProfile}
+          teluguMode={teluguMode}
+          onClose={() => setShowProfile(false)}
+          onUpdateProfile={(updatedProfile) => {
+            setUserProfile(updatedProfile);
+            localStorage.setItem('userProfile', JSON.stringify(updatedProfile));
+          }}
+        />
+      )}
+
+      <main className="flex-1 overflow-auto p-4">
+        {currentPage === 'home' && (
+          <HomePage
+            teluguMode={teluguMode}
+            onSelectMode={(mode: AssistantMode) => {
+              setAssistantMode(mode);
+              if (mode === 'health') setCurrentPage('health-input');
+              else if (mode === 'farming') setCurrentPage('farming-input');
+              else if (mode === 'education') setCurrentPage('education-input');
+              else setCurrentPage('home');
+            }}
+          />
+        )}
+
+        {(currentPage === 'health-input' ||
+          currentPage === 'farming-input' ||
+          currentPage === 'education-input') && (
+          <ModeInputPage
+            teluguMode={teluguMode}
+            assistantMode={assistantMode}
+            onSubmit={(message) => {
+              // Move to chat page and set initial user message
+              if (assistantMode === 'health') setCurrentPage('health-chat');
+              else if (assistantMode === 'farming') setCurrentPage('farming-chat');
+              else if (assistantMode === 'education') setCurrentPage('education-chat');
+
+              setPendingUserMessage(message);
+              setMessages([]);
+            }}
+            onBack={() => setCurrentPage('home')}
+          />
+        )}
+
+        {(currentPage === 'health-chat' ||
+          currentPage === 'farming-chat' ||
+          currentPage === 'education-chat') && (
+          <ChatPage
+            teluguMode={teluguMode}
+            messages={messages}
+            isLoading={isLoading}
+            error={error}
+            onSendMessage={handleSendMessage}
+            onClearChat={handleClearChat}
+            onBack={() => {
+              setCurrentPage('home');
+              setMessages([]);
+              setError(null);
+            }}
+            voiceEnabled={voiceEnabled}
+            onToggleVoice={() => setVoiceEnabled((prev) => !prev)}
+          />
+        )}
+      </main>
+    </div>
+  );
+}
+
+export default App;
